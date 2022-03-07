@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "log-timestamp": "^0.3.0",
+    "octokit": "^1.7.1",
+    "properties-reader": "^2.2.0",
+    "request": "^2.81.0"
+  },
+  "type": "module"
+}
