@@ -4,12 +4,12 @@ import fs from 'fs'
 import propertiesReader from 'properties-reader';
 import { createAppAuth } from "@octokit/auth-app";
 
-exports.handler =  async function(event, context) {
+
   fs.readFile('file.pem', 'utf8', function(err, data) {
       if (err) throw err;
       main(data)
   });
-};
+
 
 function timestamp(param){
     const dateObject = new Date();
@@ -50,7 +50,6 @@ async function main(privateKey){
         },
     });
 
-    while(true){
         for await (const { octokit, repository } of app.eachRepository.iterator()) {
             const comparison = await octokit.rest.repos.compareCommits({
                  owner: repository.owner.login ,
@@ -75,5 +74,4 @@ async function main(privateKey){
             console.error(timestamp(0)," " ,e)
         }
     }
-}
 }
