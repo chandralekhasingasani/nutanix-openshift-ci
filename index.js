@@ -30,17 +30,14 @@ function timestamp(param){
 }
 
 async function main(privateKey){
-    propertiesReader = import('properties-reader')
     const properties = propertiesReader('app.properties');
     const appId = properties.get('appId')
     const installationId = properties.get('installationId')
-    App = require('octokit')
     const app = new App({
         appId: appId,
         privateKey: privateKey
     });
 
-    Octokit = require('octokit')
     const octokit = new Octokit({
         authStrategy: createAppAuth,
         auth: {
