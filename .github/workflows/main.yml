@@ -30,6 +30,7 @@ jobs:
         run: |
           echo import certificate from secrets and regenerate the file
           echo $PEM | base64 -d > file.pem
+
       # Runs a single command using the runners shell
       - name: Run a one-line script
         run: node index.js
