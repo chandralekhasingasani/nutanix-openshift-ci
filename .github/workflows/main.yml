@@ -13,6 +13,8 @@ on:
 
 env:
   PEM: ${{ secrets.PEM_FILE }}
+  APP_ID: ${{ secrets.APP_ID }}
+  INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -32,4 +34,4 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Run index.js script to run fetch and merge api on every repository where the app is installed
-        run: node index.js
+        run: node index.js ${APP_ID} ${INSTALLATION_ID}

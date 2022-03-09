@@ -1,15 +1,7 @@
 import { Octokit, App } from "octokit";
 import request from 'request';
 import fs from 'fs'
-import propertiesReader from 'properties-reader';
 import { createAppAuth } from "@octokit/auth-app";
-
-
-  fs.readFile('file.pem', 'utf8', function(err, data) {
-      if (err) throw err;
-      main(data)
-  });
-
 
 function timestamp(param){
     const dateObject = new Date();
@@ -29,10 +21,10 @@ function timestamp(param){
     }
 }
 
-async function main(privateKey){
-    const properties = propertiesReader('app.properties');
-    const appId = properties.get('appId')
-    const installationId = properties.get('installationId')
+async function main(privateKey,app_id,installation_id){
+    const appId = app_id
+    const installationId = installation_id
+
     const app = new App({
         appId: appId,
         privateKey: privateKey
@@ -72,3 +64,5 @@ async function main(privateKey){
         }
     }
 }
+
+main(data,process.argv[2],process.argv[3])
