@@ -52,7 +52,7 @@ async function main(privateKey){
                  owner: repository.owner.login ,
                  repo: repository.name ,
                  head: 'main',
-                 base: 'chandralekhasingasani:main'
+                 base: 'chandralek:main'
              })
             console.log(timestamp(1)," Is Upstream identical to forked  repository ",repository.name,"  ? " , comparison.data.status)
         try{
