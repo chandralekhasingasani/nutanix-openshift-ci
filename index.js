@@ -8,7 +8,7 @@ import { createAppAuth } from "@octokit/auth-app";
   fs.readFile('file.pem', 'utf8', function(err, data) {
       if (err) throw err;
       console.log(process.argv[2])
-      main(process.argv[2])
+      //main(process.argv[2])
   });
 
 
