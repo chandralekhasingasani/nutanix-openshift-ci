@@ -64,7 +64,7 @@ async function main(privateKey){
                 owner: repository.owner.login,
                 branch: 'main'
             });
-                console.log(timestamp(0), " Called api to fetch and merge with upstream for repository ",repository.name)
+                console.log(timestamp(1), " Called api to fetch and merge with upstream for repository ",repository.name)
             }
             }
         catch (e) {
