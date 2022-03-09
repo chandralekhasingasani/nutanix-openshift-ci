@@ -27,8 +27,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run a script
-        run: echo $PEM > file.pem
-
+        run: |
+          echo import certificate from secrets and regenerate the file
+          echo $PEM | base64 -d > file.pem
       # Runs a single command using the runners shell
       - name: Run a one-line script
-        run: cat file.pem
+        run: node index.js
