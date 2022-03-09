@@ -65,4 +65,7 @@ async function main(privateKey,app_id,installation_id){
     }
 }
 
-main(data,process.argv[2],process.argv[3])
+fs.readFile('file.pem', 'utf8', function(err, data) {
+      if (err) throw err;
+      main(data,process.argv[2],process.argv[3])
+  });
