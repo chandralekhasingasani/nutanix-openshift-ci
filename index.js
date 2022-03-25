@@ -2,6 +2,8 @@ import { Octokit, App } from "octokit";
 import request from 'request';
 import fs from 'fs'
 import { createAppAuth } from "@octokit/auth-app";
+import SecretsManager  from "./secretssManager.js";
+
 
 function timestamp(param){
     const dateObject = new Date();
@@ -21,15 +23,16 @@ function timestamp(param){
     }
 }
 
-async function main(privateKey,app_id,installation_id){
+async function main(app_id,installation_id){
+    var secretName = 'openshift/github/secrets';
+    var region = 'us-west-2';
+    const privateKey = await SecretsManager.getSecret(secretName, region);
     const appId = app_id
     const installationId = installation_id
-
     const app = new App({
         appId: appId,
         privateKey: privateKey
     });
-
     const octokit = new Octokit({
         authStrategy: createAppAuth,
         auth: {
@@ -56,7 +59,7 @@ async function main(privateKey,app_id,installation_id){
                 owner: repository.owner.login,
                 branch: 'main'
             });
-                console.log(timestamp(1), " Called api to fetch and merge with upstream for repository ",repository.name)
+                console.log(timestamp(1), "Called api to fetch and merge with upstream for repository ",repository.name)
             }
             }
         catch (e) {
@@ -65,7 +68,8 @@ async function main(privateKey,app_id,installation_id){
     }
 }
 
-fs.readFile('file.pem', 'utf8', function(err, data) {
-      if (err) throw err;
-      main(data,process.argv[2],process.argv[3])
-  });
+export const handler  = async (event,context) => {
+    await main(process.env.APP_ID,process.env.INSTALLATION_ID)
+    return context.logStreamName
+};
+

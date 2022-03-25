@@ -1,9 +1,14 @@
 {
   "dependencies": {
+    "aws-sdk": "^2.1099.0",
     "log-timestamp": "^0.3.0",
     "octokit": "^1.7.1",
     "properties-reader": "^2.2.0",
     "request": "^2.81.0"
   },
-  "type": "module"
+  "type": "module",
+  "compilerOptions": {
+    "module": "es6",
+    "target": "es5"
+  }
 }
