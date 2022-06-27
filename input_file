@@ -1,0 +1,17 @@
+export OAUTH_TOKEN=****
+export PE_STORAGE_CONTAINER=****
+export PE_USERNAME=****
+export PE_PASSWORD=****
+export INSTALLER_BRANCH=****
+export PRISM_CENTRAL_USER=****
+export PRISM_CENTRAL_PASSWORD=****
+export API_VIP=10.40.142.2
+export INGRESS_VIP=10.40.142.3
+export PRISM_CENTRAL_END_POINT=prism-ganon.ntnxsherlock.com
+export PULL_SECRET=****
+export SSH_PUBLIC_KEY=****
+export PRISM_ELEMENT_IP=10.40.231.131
+export CLUSTER_NAME=demo-general
+export IMAGE_TAG=4.11.0-0.nightly-2022-05-20-213928
+export AWS_ACCESS_KEY=********
+export AWS_SECRET_KEY=********
