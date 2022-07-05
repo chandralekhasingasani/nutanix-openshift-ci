@@ -336,6 +336,9 @@ spec:
     registryPoll:
       interval: 5m
 EOF
+    oc apply -f manifest_0005-nutanix-csi-catalog.yaml >> ${LOG_FILE} 2>&1
+    statusCheck $? "Created a Catalog source nutanix-csi-operator-beta"
+
     cat > "manifest_0004-nutanix-csi-subscription.yaml" << EOF
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
