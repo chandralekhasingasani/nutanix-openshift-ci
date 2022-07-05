@@ -23,13 +23,13 @@ function statusCheck() {
 }
 
 function pull_image_redhat_latest () {
-  oc login --token=${OAUTH_TOKEN} --server=https://api.ci.l2s4.p1.openshiftapps.com:6443 > /dev/null 2>&1
-  oc registry login > /dev/null 2>&1
-  docker login registry.ci.openshift.org > /dev/null 2>&1
+  oc login --token=${OAUTH_TOKEN} --server=https://api.ci.l2s4.p1.openshiftapps.com:6443 >> ${LOG_FILE} 2>&1
+  oc registry login >> ${LOG_FILE} 2>&1
+  docker login registry.ci.openshift.org >> ${LOG_FILE} 2>&1
   statusCheck $? "docker login to registry.ci.openshift.org is successfull"
   docker pull ${RELEASE_IMAGE} >> $LOG_FILE 2>&1
   statusCheck $? "Pulled  image ${RELEASE_IMAGE}"
-  aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/g7v6l0u0 > /dev/null 2>&1
+  aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/g7v6l0u0 >> ${LOG_FILE} 2>&1
   statusCheck $? "docker login to  public.ecr.aws/g7v6l0u0/openshift/origin-release successfully"
   docker tag ${RELEASE_IMAGE} public.ecr.aws/g7v6l0u0/openshift/origin-release:nightly
   docker push public.ecr.aws/g7v6l0u0/openshift/origin-release:nightly
@@ -40,52 +40,38 @@ function printstars(){
   echo "******************************$1***************************************" >> $LOG_FILE
 }
 
-function pull_image () {
-  aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/g7v6l0u0 > /dev/null 2>&1
-  docker pull public.ecr.aws/g7v6l0u0/openshift/origin-release:${IMAGE_TAG} >> $LOG_FILE 2>&1
-  statusCheck $? "Pulled docker image ${IMAGE_TAG}"
-}
-
-
 function install_openshift_cli(){
       if [ `command -v oc | wc -l` -eq 0 ];
       then
         rm -rf oc
-        git clone git@github.com:openshift/oc.git > /dev/null 2>&1
-        pushd oc > /dev/null 2>&1
-        make build > /dev/null 2>&1
+        git clone git@github.com:openshift/oc.git >> ${LOG_FILE} 2>&1
+        pushd oc >> ${LOG_FILE} 2>&1
+        make build >> ${LOG_FILE} 2>&1
         statusCheck $? "Built oc binary"
-        sudo cp ./oc /usr/bin/oc /dev/null 2>&1
+        sudo cp ./oc /usr/bin/oc >> ${LOG_FILE} 2>&1
         popd
       fi
 }
 
 function install_ccoctl(){
-  if [ `command -v ccoctl | wc -l` -eq 0 ];
-  then
-    rm -rf cloud-credential-operator
-    git clone git@github.com:openshift/cloud-credential-operator.git > /dev/null 2>&1
-    statusCheck $? "Cloned cloud-credential-operator repository"
-    pushd cloud-credential-operator > /dev/null 2>&1
-    make build > /dev/null 2>&1
-    statusCheck $? "Built ccoctl binary"
-    sudo cp ./ccoctl /usr/bin/ccoctl > /dev/null 2>&1
-    popd
-  fi
+  export OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE='public.ecr.aws/g7v6l0u0/openshift/origin-release:nightly'
+  CCO_IMAGE=$(oc adm release info --image-for='cloud-credential-operator' -a pull_secret.json ${OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE})
+  oc image extract $CCO_IMAGE --file="/usr/bin/ccoctl" -a pull_secret.json
+  chmod +x ccoctl
 }
 
 function install_openshift_installer(){
     if [ ! -d openshift-installer ];then
-      git clone git@github.com:nutanix-cloud-native/openshift-installer.git > /dev/null 2>&1
+      git clone git@github.com:nutanix-cloud-native/openshift-installer.git >> ${LOG_FILE} 2>&1
       statusCheck $? "Cloned install openshift-installer repository"
     fi    
-    pushd openshift-installer > /dev/null 2>&1
-    git checkout ${INSTALLER_BRANCH} > /dev/null 2>&1
+    pushd openshift-installer >> ${LOG_FILE} 2>&1
+    git checkout ${INSTALLER_BRANCH} >> ${LOG_FILE} 2>&1
     git clean -xdf
     git pull
     statusCheck $? "Checkout branch to ${INSTALLER_BRANCH}"
     sh ./hack/build.sh 
-    sudo cp ./bin/openshift-install /usr/bin/openshift-install > /dev/null 2>&1
+    sudo cp ./bin/openshift-install /usr/bin/openshift-install >> ${LOG_FILE} 2>&1
     statusCheck $? "Built openshift-install binary"
     popd
 }
@@ -107,7 +93,7 @@ EOF
     pushd binary
     oc adm release extract --credentials-requests --cloud=nutanix --to=. public.ecr.aws/g7v6l0u0/openshift/origin-release:nightly
     statusCheck $? "Credentials request object created"
-    ccoctl nutanix create-shared-secrets --credentials-requests-dir=. --output-dir=. > /dev/null 2>&1
+    ccoctl nutanix create-shared-secrets --credentials-requests-dir=. --output-dir=. >> ${LOG_FILE} 2>&1
     statusCheck $? "Shared secrets  created"
     export OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE='public.ecr.aws/g7v6l0u0/openshift/origin-release:nightly'
     cat <<EOF >>install-config.yaml
@@ -152,9 +138,9 @@ platform:
     - endpoint:
         address: ${PRISM_ELEMENT_IP}
         port: 9440
-      uuid: 0005b0f1-8f43-a0f2-02b7-3cecef193712
+      uuid: ${UUID}
     subnetUUIDs:
-    - c7938dc6-7659-453e-a688-e26020c68e43
+    - ${SUBNET_UUID}
 publish: External
 pullSecret: ${PULL_SECRET}
 sshKey: |
@@ -178,13 +164,13 @@ function destroy_cluster()
   if [ ! -f binary/auth/kubeconfig ];then    
     statusCheck 1 "Kubeconfig file not present under binary/auth/kubeconfig" 
   fi
-  pushd binary > /dev/null 2>&1
+  pushd binary >> ${LOG_FILE} 2>&1
   export KUBECONFIG=`pwd`/binary/auth/kubeconfig
   openshift-install destroy cluster --log-level=debug >> ${LOG_FILE} 2>&1
   statusCheck $? "Cluster deleted, logs saved to ${LOG_FILE}" 
   popd
   pushd openshift-installer 
-  git clean -xdf > /dev/null 2>&1
+  git clean -xdf >> ${LOG_FILE} 2>&1
   popd
 }
 
@@ -193,11 +179,11 @@ function run_e2e_tests()
   if [ `command -v openshift-tests | wc -l` -eq 0 ];
   then
     rm -rf origin
-    git clone "https://github.com/openshift/origin.git" > /dev/null 2>&1
-    pushd ./origin > /dev/null 2>&1
-    go mod tidy && go mod vendor > /dev/null 2>&1
-    make > /dev/null 2>&1
-    sudo mv ./openshift-tests /usr/bin/openshift-tests > /dev/null 2>&1
+    git clone "https://github.com/openshift/origin.git" >> ${LOG_FILE} 2>&1
+    pushd ./origin >> ${LOG_FILE} 2>&1
+    go mod tidy && go mod vendor >> ${LOG_FILE} 2>&1
+    make >> ${LOG_FILE} 2>&1
+    sudo mv ./openshift-tests /usr/bin/openshift-tests >> ${LOG_FILE} 2>&1
     statusCheck $? "Cloned origin repository"
     popd
   fi
@@ -207,7 +193,7 @@ function run_e2e_tests()
   fi
   export KUBECONFIG=`pwd`/binary/auth/kubeconfig
   pushd binary
-  openshift-tests run openshift/conformance/parallel -o parallel-conformance.log > /dev/null 2>&1
+  openshift-tests run openshift/conformance/parallel -o parallel-conformance.log >> ${LOG_FILE} 2>&1
   statusCheck $? "E2e tests executed , logs saved to parallel-conformance.log file" 
   popd
 }
@@ -234,13 +220,13 @@ spec:
     requests:
       storage: 100Gi
 EOF
-    oc delete -f image-registry-pvc.yaml -n openshift-image-registry > /dev/null 2>&1
-    oc create -f image-registry-pvc.yaml -n openshift-image-registry > /dev/null 2>&1
+    oc delete -f image-registry-pvc.yaml -n openshift-image-registry >> ${LOG_FILE} 2>&1
+    oc create -f image-registry-pvc.yaml -n openshift-image-registry >> ${LOG_FILE} 2>&1
     statusCheck $? "Created PVC named image-registry" 
-    oc patch configs.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"storage":{"pvc":{"claim":"image-registry-storage"}}}}' > /dev/null 2>&1
-    oc patch config.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"rolloutStrategy":"Recreate","replicas":1}}' > /dev/null 2>&1
+    oc patch configs.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"storage":{"pvc":{"claim":"image-registry-storage"}}}}' >> ${LOG_FILE} 2>&1
+    oc patch config.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"rolloutStrategy":"Recreate","replicas":1}}' >> ${LOG_FILE} 2>&1
     statusCheck $?  "Changed rollout strategy for Image Registry"
-    oc patch configs.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"managementState":"Managed"}}' > /dev/null 2>&1
+    oc patch configs.imageregistry.operator.openshift.io/cluster --type=merge -p '{"spec":{"managementState":"Managed"}}' >> ${LOG_FILE} 2>&1
     statusCheck $?  "Changing management state for Image Registry Operator"
     popd 
   fi 
@@ -299,7 +285,7 @@ spec:
     subresources:
       status: {}
 EOF
-    oc apply -f manifest_0000-nutanix-csi-crd-manifest.yaml > /dev/null 2>&1
+    oc apply -f manifest_0000-nutanix-csi-crd-manifest.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created nutanixcsistorages CRD"
 
     cat > "manifest_0001-nutanix-csi-ntnx-system-namespace.yaml" << EOF
@@ -308,7 +294,7 @@ kind: Namespace
 metadata:
   name: ntnx-system
 EOF
-    oc apply -f manifest_0001-nutanix-csi-ntnx-system-namespace.yaml > /dev/null 2>&1
+    oc apply -f manifest_0001-nutanix-csi-ntnx-system-namespace.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created ntnx-system namespace"
 
     cat > "manifest_0002-nutanix-csi-ntnx-secret.yaml" << EOF
@@ -320,7 +306,7 @@ metadata:
 stringData:
   key: ${PRISM_ELEMENT_IP}:9440:${PE_USERNAME}:${PE_PASSWORD}
 EOF
-    oc apply -f manifest_0002-nutanix-csi-ntnx-secret.yaml > /dev/null 2>&1
+    oc apply -f manifest_0002-nutanix-csi-ntnx-secret.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created ntnx-secret secret"
 
     cat > "manifest_0003-nutanix-csi-operator-group.yaml" << EOF
@@ -333,9 +319,23 @@ spec:
   targetNamespaces:
     - ntnx-system
 EOF
-    oc apply -f manifest_0003-nutanix-csi-operator-group.yaml > /dev/null 2>&1
+    oc apply -f manifest_0003-nutanix-csi-operator-group.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created Operator group ntnx-system-r8czl"
-
+    cat > "manifest_0005-nutanix-csi-catalog.yaml" << EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: nutanix-csi-operator-beta
+  namespace: openshift-marketplace
+spec:
+  displayName: Nutanix Beta
+  publisher: Nutanix-dev
+  sourceType: grpc
+  image: quay.io/ntnx-csi/nutanix-csi-operator-catalog:latest
+  updateStrategy:
+    registryPoll:
+      interval: 5m
+EOF
     cat > "manifest_0004-nutanix-csi-subscription.yaml" << EOF
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -349,7 +349,7 @@ spec:
   source: certified-operators
   sourceNamespace: openshift-marketplace
 EOF
-    oc apply -f manifest_0004-nutanix-csi-subscription.yaml > /dev/null 2>&1
+    oc apply -f manifest_0004-nutanix-csi-subscription.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created Subscription nutanixcsioperator"
 
     cat > "manifest_0005-nutanix-csi-storage.yaml" << EOF
@@ -366,7 +366,7 @@ spec:
       value: ""
       effect: "NoSchedule"
 EOF
-    oc apply -f manifest_0005-nutanix-csi-storage.yaml > /dev/null 2>&1
+    oc apply -f manifest_0005-nutanix-csi-storage.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created NutanixCsiStorage named nutanixcsistorage"
 
     cat > "manifest_0006-nutanix-csi-storage-class.yaml" << EOF
@@ -390,8 +390,8 @@ parameters:
 allowVolumeExpansion: true
 reclaimPolicy: Delete
 EOF
-    oc delete -f manifest_0006-nutanix-csi-storage-class.yaml > /dev/null 2>&1
-    oc apply -f manifest_0006-nutanix-csi-storage-class.yaml > /dev/null 2>&1
+    oc delete -f manifest_0006-nutanix-csi-storage-class.yaml >> ${LOG_FILE} 2>&1
+    oc apply -f manifest_0006-nutanix-csi-storage-class.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Created StorageClass named nutanix-volume"
 
     cat > "manifest_iscsid-enable-master.yaml" << EOF
@@ -410,7 +410,7 @@ spec:
       - enabled: true
         name: iscsid.service
 EOF
-    oc apply -f manifest_iscsid-enable-master.yaml > /dev/null 2>&1
+    oc apply -f manifest_iscsid-enable-master.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Set iscsid.service on the master to true"
 
 cat > "manifest_iscsid-enable-worker.yaml" << EOF
@@ -429,7 +429,7 @@ spec:
       - enabled: true
         name: iscsid.service
 EOF
-    oc apply -f manifest_iscsid-enable-worker.yaml > /dev/null 2>&1
+    oc apply -f manifest_iscsid-enable-worker.yaml >> ${LOG_FILE} 2>&1
     statusCheck $? "Set iscsid.service on the worker to true"
     popd 
 fi
@@ -437,21 +437,20 @@ fi
 
 function send_kubeconfig_slack()
 {
-  message=`awk '/Access/{x=NR+1}(NR<=x){print}' ${LOG_FILE}|cut -d "=" -f 3|xargs`
+  message=`awk '/msg=Access/{x=NR+1}(NR<=x){print}' ${LOG_FILE}|cut -d "=" -f 3|xargs`
   path_kubeconfig_file=`pwd`/binary/auth/kubeconfig
   if [ -f $path_kubeconfig_file ];then
-      curl -F file=@binary/auth/kubeconfig -F "initial_comment=Here is the Kubeconfig file , INSTALLER_BRANCH=$INSTALLER_BRANCH and RELEASE_IMAGE=${RELEASE_IMAGE} . ${message}" -F channels=C03L5TG925C -H "Authorization: Bearer xoxb-2172428722-3547239687975-JqvTUzCcpB8ULNs70i4RKJk8" https://slack.com/api/files.upload
+      curl -F file=@binary/auth/kubeconfig -F "initial_comment=Created a Openshift cluster on ${PRISM_CENTRAL_END_POINT} named ${CLUSTER_NAME} with the installer branch - ${INSTALLER_BRANCH} and release image ${RELEASE_IMAGE} . ${message}" -F channels=C03L5TG925C -H "Authorization: Bearer ${SLACK_TOKEN}" https://slack.com/api/files.upload
       statusCheck $? "Sent Kube config file to Slack channel"
   else
      curl -X POST -H 'Content-type: application/json' --data "{
-              \"text\": \"Cluster creation Failed , Please debug !!! \"}" https://hooks.slack.com/services/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
+              \"text\": \"Cluster creation Failed , Please debug !!! \"}" ${WEBHOOK_URL}
      statusCheck 1 "Kube config file not present."
   fi
 }
 
 source ./input_file
 source ~/.bash_profile
-
 statusCheck 0 "GOPATH=$GOPATH"
 statusCheck 0 "INSTALLER_BRANCH=$INSTALLER_BRANCH"
 statusCheck 0 "API_VIP=$API_VIP"
@@ -498,7 +497,6 @@ fi
 
 function create_cluster()
 {
-  #install_tools
   pull_image_redhat_latest
   install_openshift_installer
   create_openshift_cluster
